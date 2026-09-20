@@ -117,6 +117,31 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    hostname: airflow-worker
+    healthcheck:
+      # yamllint disable rule:line-length
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      <<: *airflow-common-env
+      # Cần để worker celery shutdown sạch
+      DUMB_INIT_SETSID: "0"
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-apiserver:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
