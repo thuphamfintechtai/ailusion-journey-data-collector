@@ -5,12 +5,20 @@ cho `ailusion-journey-be` dùng.
 
 Repo hiện **chỉ có phần setup Airflow**, chưa có DAG hay job nào.
 
+Có hai cách chạy:
+
+| Cách | Khi nào dùng | Port |
+|---|---|---|
+| [Docker compose](#chạy-bằng-docker-compose) | Giống môi trường thật (Celery + Postgres) | 8081 |
+| [Local](#chạy-airflow-local-không-docker) | Chỉ cần viết và parse DAG, nhẹ hơn | 8082 |
+
 ## Yêu cầu
 
 - Docker Desktop đang chạy, cấp tối thiểu **4 GB RAM** và **2 CPU**
 - Port `8081` còn trống (xem mục Port bên dưới)
+- Bản local cần thêm `python3.12`
 
-## Chạy
+## Chạy bằng docker compose
 
 ```bash
 cp .env.example .env
@@ -49,6 +57,95 @@ Dừng:
 docker compose down          # dừng, giữ lại database
 docker compose down -v       # dừng và xoá sạch database Airflow
 ```
+
+## Chạy Airflow local (không Docker)
+
+Nhẹ hơn Docker, hợp khi chỉ cần viết và parse DAG. Dùng SQLite +
+LocalExecutor nên **không phản ánh đúng môi trường thật** (thật là Celery +
+Postgres) — trước khi merge vẫn nên chạy lại bằng `docker compose`.
+
+### 1. Tạo venv bằng Python 3.12
+
+Airflow 3.0.2 chưa hỗ trợ Python 3.13/3.14. Máy có `python3` là 3.14 nên
+phải gọi đích danh `python3.12`:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+```
+
+Phải `source` để `airflow` nằm trong `PATH`. Gọi thẳng `./.venv/bin/airflow`
+sẽ hỏng: `airflow standalone` spawn tiến trình con bằng cách gọi lại lệnh
+`airflow` từ `PATH`, không thấy thì chết với
+`FileNotFoundError: [Errno 2] No such file or directory: 'airflow'`.
+
+### 2. Cài Airflow
+
+Bắt buộc dùng file constraint, nếu không pip sẽ resolve ra tổ hợp version hỏng:
+
+```bash
+pip install "apache-airflow==3.0.2" \
+  --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.0.2/constraints-3.12.txt"
+```
+
+### 3. Chạy
+
+```bash
+export AIRFLOW_HOME="$(pwd)/.airflow"
+export AIRFLOW__CORE__DAGS_FOLDER="$(pwd)/dags"
+export AIRFLOW__CORE__LOAD_EXAMPLES=False
+export AIRFLOW__API__PORT=8082
+
+airflow standalone
+```
+
+`AIRFLOW_HOME` bắt buộc phải trỏ vào repo. Mặc định Airflow dùng `~/airflow`
+— dùng chung với mọi project khác trên máy, dễ lẫn metadata database.
+
+`airflow standalone` **không có cờ `--port`**, đổi port bằng
+`AIRFLOW__API__PORT` như trên. Dùng 8082 để không đụng 8080
+(finance-intelligence-hub) và 8081 (bản Docker của repo này).
+
+Mở <http://localhost:8082>, đăng nhập user `admin`. Mật khẩu tự sinh nằm ở:
+
+```
+.airflow/simple_auth_manager_passwords.json.generated
+```
+
+Kiểm tra các thành phần đã chạy:
+
+```bash
+airflow db check                                 # Connection successful
+airflow jobs check --job-type SchedulerJob       # Found one alive job
+airflow jobs check --job-type TriggererJob       # Found one alive job
+airflow dags list                                # No data found (chưa có DAG)
+```
+
+Dừng: `Ctrl-C`. Xoá sạch để làm lại: `rm -rf .airflow`.
+
+### Lỗi SIGSEGV trên macOS
+
+Trên macOS, log của `airflow standalone` sẽ đầy dòng:
+
+```
+scheduler  | [ERROR] Worker (pid:59620) was sent SIGSEGV!
+triggerer  | [ERROR] Worker (pid:59622) was sent SIGSEGV!
+```
+
+Đây là tiến trình **log-server** (gunicorn) mà scheduler và triggerer spawn
+kèm, bị lỗi fork-safety của macOS. Đã kiểm: **không ảnh hưởng chức năng** —
+scheduler và triggerer vẫn báo "Found one alive job", web UI và REST API vẫn
+trả 200, tổng CPU của các tiến trình Airflow chỉ ~2.6%.
+
+Giảm bớt (không hết hẳn):
+
+```bash
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+export no_proxy='*'
+```
+
+Muốn log sạch hẳn thì dùng bản Docker — container chạy Linux nên không dính
+lỗi này.
 
 ## Test nhanh khi chưa có DAG
 
