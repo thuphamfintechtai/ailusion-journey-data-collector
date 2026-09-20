@@ -6,6 +6,8 @@
 # Biến môi trường hỗ trợ (khai báo trong .env):
 #   AIRFLOW_UID                  - UID chạy trong container. Mặc định 50000
 #   AIRFLOW_PROJ_DIR             - Thư mục gốc mount vào container. Mặc định .
+#   AIRFLOW_PORT                 - Port web UI trên máy host. Mặc định 8080
+#   FLOWER_PORT                  - Port Flower trên máy host. Mặc định 5555
 #   _AIRFLOW_WWW_USER_USERNAME   - Tài khoản admin web UI. Mặc định airflow
 #   _AIRFLOW_WWW_USER_PASSWORD   - Mật khẩu admin web UI. Mặc định airflow
 ---
@@ -74,7 +76,8 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8080:8080"
+      # Đổi AIRFLOW_PORT trong .env nếu máy đang chạy sẵn một Airflow khác ở 8080.
+      - "${AIRFLOW_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
       interval: 30s
@@ -254,7 +257,7 @@ services:
     profiles:
       - flower
     ports:
-      - "5555:5555"
+      - "${FLOWER_PORT:-5555}:5555"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
       interval: 30s
