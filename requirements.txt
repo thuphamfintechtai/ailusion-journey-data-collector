@@ -1,0 +1,15 @@
+# Dependency cho DAG thu thập dữ liệu.
+# Giữ tối thiểu — thêm khi thực sự cần, không cài sẵn thứ chưa dùng.
+#
+# Airflow và provider (celery, postgres, fab) đã có sẵn trong image
+# apache/airflow:3.0.2, không khai báo lại ở đây.
+
+requests
+python-dotenv
+
+# Thêm khi cần:
+# pandas
+# sqlalchemy
+# psycopg2-binary
+# beautifulsoup4
+# httpx
