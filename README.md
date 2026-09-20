@@ -34,8 +34,20 @@ docker compose ps                      # tất cả service phải (healthy)
 curl -s localhost:8081/api/v2/version  # apiserver trả về version
 ```
 
-Mở web UI: <http://localhost:8081> — đăng nhập `airflow` / `airflow`
-(đổi trong `.env`).
+Mở web UI: <http://localhost:8081> — đăng nhập `admin` / `admin`
+(đổi trong `.env`, khoá `_AIRFLOW_WWW_USER_USERNAME` và
+`_AIRFLOW_WWW_USER_PASSWORD`).
+
+Tài khoản chỉ được tạo ở lần `up` đầu tiên, khi metadata database còn trống.
+Đổi trong `.env` sau đó sẽ không có tác dụng — phải tạo lại bằng tay:
+
+```bash
+docker compose exec airflow-apiserver airflow users create \
+  --username admin --password admin --firstname Admin --lastname User \
+  --role Admin --email admin@ailusion.local
+```
+
+Hoặc xoá sạch database rồi dựng lại: `docker compose down -v && docker compose up -d`.
 
 ### Port
 
@@ -106,7 +118,15 @@ airflow standalone
 `AIRFLOW__API__PORT` như trên. Dùng 8082 để không đụng 8080
 (finance-intelligence-hub) và 8081 (bản Docker của repo này).
 
-Mở <http://localhost:8082>, đăng nhập user `admin`. Mật khẩu tự sinh nằm ở:
+Mở <http://localhost:8082>, đăng nhập `admin` / `admin`.
+
+Bản local dùng SimpleAuthManager, nó **tự sinh mật khẩu ngẫu nhiên** ở lần chạy
+đầu và ghi vào file dưới đây. Muốn dùng `admin`/`admin` cho khớp bản Docker thì
+sửa thẳng file rồi khởi động lại:
+
+```bash
+echo '{"admin": "admin"}' > .airflow/simple_auth_manager_passwords.json.generated
+```
 
 ```
 .airflow/simple_auth_manager_passwords.json.generated
