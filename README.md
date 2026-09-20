@@ -108,3 +108,28 @@ Metadata nằm ở PostgreSQL riêng trong compose.
 Đặt file `.py` vào `dags/`. Thư mục được mount thẳng vào container nên
 dag-processor tự nhận sau vài chục giây, không cần restart.
 
+## Quy ước code
+
+Thống nhất với `ailusion-journey-mcp`:
+
+- **Không dùng icon / emoji** ở bất cứ đâu — log, `print()`, docstring, README
+- **Log message viết bằng tiếng Việt**, dạng câu ngắn mô tả việc đang xảy ra
+- **Ghi chú (comment, docstring) viết bằng tiếng Việt**, giải thích *vì sao*
+  chứ không lặp lại *cái gì* mà code đã nói
+- Tên biến, tên hàm, tên DAG, `task_id`: giữ không dấu để grep được
+
+## Repo liên quan
+
+| Repo | Vai trò |
+|---|---|
+| [`ailusion-journey-fe`](https://github.com/thuphamfintechtai/ailusion-journey-fe) | Next.js — giao diện người dùng |
+| [`ailusion-journey-be`](https://github.com/thuphamfintechtai/ailusion-journey-be) | Node.js — API, dữ liệu, nghiệp vụ |
+| [`ailusion-journey-llm`](https://github.com/thuphamfintechtai/ailusion-journey-llm) | Python — suy luận LLM |
+| [`ailusion-journey-mcp`](https://github.com/thuphamfintechtai/ailusion-journey-mcp) | Python — lớp MCP cho LLM gọi tool |
+| `ailusion-journey-data-collector` | **repo này** — Airflow thu thập dữ liệu |
+
+Luồng dữ liệu:
+
+```
+data-collector (Airflow)  ->  kho dữ liệu  ->  be (API)  ->  mcp (tool)  ->  llm / client
+```
