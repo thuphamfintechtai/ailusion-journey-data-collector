@@ -1,0 +1,62 @@
+# Cụm Airflow cho môi trường phát triển: CeleryExecutor + Redis + PostgreSQL.
+# Dựa trên docker-compose chính thức của Apache Airflow.
+#
+# CẢNH BÁO: cấu hình này dành cho local development, không dùng cho production.
+#
+# Biến môi trường hỗ trợ (khai báo trong .env):
+#   AIRFLOW_UID                  - UID chạy trong container. Mặc định 50000
+#   AIRFLOW_PROJ_DIR             - Thư mục gốc mount vào container. Mặc định .
+#   _AIRFLOW_WWW_USER_USERNAME   - Tài khoản admin web UI. Mặc định airflow
+#   _AIRFLOW_WWW_USER_PASSWORD   - Mật khẩu admin web UI. Mặc định airflow
+---
+x-airflow-common:
+  &airflow-common
+  build: .
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    # Bật true trong .env để nạp DAG mẫu, dùng khi repo chưa có DAG nào.
+    AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-false}
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # Cần cho việc resolve hostname khi worker ghi log
+    AIRFLOW__CORE__HOSTNAME_CALLABLE: 'airflow.utils.net.getfqdn'
+    PYTHONPATH: '/opt/airflow'
+    AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-.}:/opt/airflow
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    &airflow-common-depends-on
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+volumes:
+  postgres-db-volume:
