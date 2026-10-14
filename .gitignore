@@ -219,6 +219,7 @@ __marimo__/
 
 # --- Airflow ---
 .env
+.env.homelab
 logs/
 config/airflow.cfg
 config/*.cfg

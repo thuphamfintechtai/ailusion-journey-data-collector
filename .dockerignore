@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+logs/
+.venv
+venv
+config/
+.airflow/
+**/__pycache__
+**/*.pyc

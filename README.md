@@ -3,13 +3,15 @@
 Airflow thu thập dữ liệu du lịch (điểm đến, giá, thời tiết) đổ về kho dữ liệu
 cho `ailusion-journey-be` dùng.
 
-Repo hiện **chỉ có phần setup Airflow**, chưa có DAG hay job nào.
+DAG hiện có: `weather_open_meteo` (Open-Meteo, 4 lần/ngày). Kết quả ghi file JSON,
+chưa đổ vào database của `ailusion-journey-be`.
 
-Có hai cách chạy:
+Có ba cách chạy:
 
 | Cách | Khi nào dùng | Port |
 |---|---|---|
-| [Docker compose](#chạy-bằng-docker-compose) | Giống môi trường thật (Celery + Postgres) | 8081 |
+| [Docker compose](#chạy-bằng-docker-compose) | Máy dev, giống môi trường thật (Celery + Postgres) | 8081 |
+| [Homelab](#chạy-trên-homelab) | Server, UI tại `https://airflow.ailusion.io.vn` | 443 qua Traefik |
 | [Local](#chạy-airflow-local-không-docker) | Chỉ cần viết và parse DAG, nhẹ hơn | 8082 |
 
 ## Yêu cầu
@@ -68,6 +70,63 @@ Dừng:
 ```bash
 docker compose down          # dừng, giữ lại database
 docker compose down -v       # dừng và xoá sạch database Airflow
+```
+
+## Chạy trên homelab
+
+UI mở tại <https://airflow.ailusion.io.vn>. Dùng
+[`compose.homelab.yaml`](compose.homelab.yaml), không dùng `docker-compose.yaml`
+của máy dev. Cụm cần khoảng **4 GB RAM** và **2 CPU**, cùng mức với bản local.
+
+Chỉ `airflow-apiserver` vào mạng Traefik. Postgres, Redis, scheduler,
+dag-processor, worker và triggerer ở mạng nội bộ.
+
+### Một lần trên server
+
+1. DNS: bản ghi `airflow.ailusion.io.vn` trỏ cùng chỗ với `journey.ailusion.io.vn`
+   (Cloudflare proxied). Cert wildcard `*.ailusion.io.vn` thì hostname mới dùng
+   được ngay. Cert liệt kê từng tên thì thêm hostname này vào resolver của Traefik.
+2. `TRAEFIK_NETWORK` trong `.env.homelab` phải trùng mạng Docker mà Traefik đang
+   gắn. Example frontend ghi `traefik_net`, example backend ghi `proxy`. Kiểm tra
+   trên server rồi copy đúng tên:
+
+   ```bash
+   docker inspect <container-traefik> --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}'
+   ```
+
+3. Clone repo vào `/home/zuzu/ailusion-journey-data-collector`. User deploy thuộc
+   nhóm `docker`.
+4. Tạo secret và điền `.env.homelab`. `AIRFLOW_UID` bằng `id -u` của user đó.
+   Password Postgres dùng hex để khỏi ký tự đặc biệt trong connection string.
+   Fernet key và API secret key phải giữ nguyên sau lần tạo đầu — đổi key làm
+   hỏng connection đã mã hoá và phiên đăng nhập.
+
+   ```bash
+   cp .env.homelab.example .env.homelab
+   openssl rand -hex 24    # POSTGRES_PASSWORD
+   openssl rand -hex 32    # AIRFLOW__API__SECRET_KEY
+   python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+
+5. Nên đặt hostname sau Cloudflare Access. Access không thay form đăng nhập của
+   Airflow, nên `AIRFLOW_ADMIN_PASSWORD` vẫn phải là mật khẩu mạnh.
+
+### Chạy
+
+```bash
+docker compose --env-file .env.homelab -f compose.homelab.yaml up -d --build
+```
+
+Tài khoản admin chỉ được tạo ở lần init đầu, khi metadata database còn trống.
+Đổi username/password trong `.env.homelab` sau đó không có tác dụng.
+
+Port `127.0.0.1:8081` trên server là lối dự phòng (SSH tunnel). Truy cập thường
+đi qua Traefik, không mở 8081 ra internet.
+
+Dừng, giữ database:
+
+```bash
+docker compose --env-file .env.homelab -f compose.homelab.yaml down
 ```
 
 ## Chạy Airflow local (không Docker)
@@ -138,7 +197,7 @@ Kiểm tra các thành phần đã chạy:
 airflow db check                                 # Connection successful
 airflow jobs check --job-type SchedulerJob       # Found one alive job
 airflow jobs check --job-type TriggererJob       # Found one alive job
-airflow dags list                                # No data found (chưa có DAG)
+airflow dags list                                # thay weather_open_meteo
 ```
 
 Dừng: `Ctrl-C`. Xoá sạch để làm lại: `rm -rf .airflow`.
@@ -167,10 +226,9 @@ export no_proxy='*'
 Muốn log sạch hẳn thì dùng bản Docker — container chạy Linux nên không dính
 lỗi này.
 
-## Test nhanh khi chưa có DAG
+## DAG mẫu của Airflow
 
-Repo chưa có DAG nên danh sách trong UI sẽ trống. Muốn có DAG để bấm thử,
-bật DAG mẫu của Airflow:
+DAG thật hiện có là `weather_open_meteo`. Muốn thêm DAG mẫu của Airflow để bấm thử:
 
 ```bash
 # sửa .env
@@ -192,16 +250,17 @@ docker compose run --rm airflow-cli airflow dags list
 ## Cấu trúc
 
 ```
-docker-compose.yaml   Cụm Airflow: apiserver, scheduler, dag-processor,
-                      worker, triggerer, init + postgres + redis
-Dockerfile            Image dựa trên apache/airflow:3.0.2, cài requirements.txt
-requirements.txt      Dependency cho DAG (giữ tối thiểu)
-.env.example          Mẫu biến môi trường, copy thành .env
-dags/                 Nơi đặt DAG (đang trống)
-plugins/              Operator/hook tự viết
-config/               airflow.cfg tự sinh khi chạy lần đầu (không commit)
-tests/                Test cho DAG
-logs/                 Log Airflow (không commit)
+docker-compose.yaml     Cụm Airflow máy dev: apiserver, scheduler, dag-processor,
+                        worker, triggerer, init + postgres + redis
+compose.homelab.yaml    Cụm homelab, UI qua Traefik tại airflow.ailusion.io.vn
+Dockerfile              Image dựa trên apache/airflow:3.0.2, cài requirements.txt
+requirements.txt        Dependency cho DAG (giữ tối thiểu)
+.env.example            Mẫu biến môi trường dev, copy thành .env
+.env.homelab.example    Mẫu biến môi trường server, copy thành .env.homelab
+dags/                   DAG (weather_open_meteo.py)
+plugins/                Hàm gọi Open-Meteo và ghi JSON
+config/                 airflow.cfg tự sinh khi chạy dev (không commit)
+logs/                   Log Airflow (không commit)
 ```
 
 ## Kiến trúc
