@@ -108,6 +108,10 @@ dag-processor, worker và triggerer ở mạng nội bộ.
    python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
 
+   `AIRFLOW_CONN_MLAI_AILUSION` trỏ database `MLAI-AILUSION` đang chạy ở
+   container `postgres_homelab`. Host trong URI là `host.docker.internal`,
+   cổng `5432`. Dấu `@` trong password viết thành `%40`.
+
 5. Nên đặt hostname sau Cloudflare Access. Access không thay form đăng nhập của
    Airflow, nên `AIRFLOW_ADMIN_PASSWORD` vẫn phải là mật khẩu mạnh.
 
