@@ -6,10 +6,10 @@
 
 requests
 python-dotenv
+beautifulsoup4
 
 # Thêm khi cần:
 # pandas
 # sqlalchemy
 # psycopg2-binary
-# beautifulsoup4
 # httpx
