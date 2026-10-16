@@ -231,3 +231,5 @@ simple_auth_manager_passwords.json.generated
 .venv/
 venv/
 .airflow/
+# Output cua DAG (ghi vao /opt/airflow/data, mount tu thu muc repo)
+data/

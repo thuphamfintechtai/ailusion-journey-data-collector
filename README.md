@@ -3,8 +3,7 @@
 Airflow thu thập dữ liệu du lịch (điểm đến, giá, thời tiết) đổ về kho dữ liệu
 cho `ailusion-journey-be` dùng.
 
-DAG hiện có: `weather_open_meteo` (Open-Meteo, 4 lần/ngày). Kết quả ghi file JSON,
-chưa đổ vào database của `ailusion-journey-be`.
+Xem danh sách DAG ở mục [DAG hiện có](#dag-hiện-có).
 
 Có ba cách chạy:
 
@@ -256,14 +255,17 @@ docker compose run --rm airflow-cli airflow dags list
 ```
 docker-compose.yaml     Cụm Airflow máy dev: apiserver, scheduler, dag-processor,
                         worker, triggerer, init + postgres + redis
+docker-compose.gmaps.yaml  Service gmaps-scraper cho DAG gmaps_places
 compose.homelab.yaml    Cụm homelab, UI qua Traefik tại airflow.ailusion.io.vn
 Dockerfile              Image dựa trên apache/airflow:3.0.2, cài requirements.txt
 requirements.txt        Dependency cho DAG (giữ tối thiểu)
 .env.example            Mẫu biến môi trường dev, copy thành .env
 .env.homelab.example    Mẫu biến môi trường server, copy thành .env.homelab
-dags/                   DAG (weather_open_meteo.py)
-plugins/                Hàm gọi Open-Meteo và ghi JSON
+dags/                   DAG
+plugins/                Code cào dữ liệu và ghi DB, DAG import từ đây
 config/                 airflow.cfg tự sinh khi chạy dev (không commit)
+tests/                  Test cho DAG
+data/                   Output của DAG (không commit)
 logs/                   Log Airflow (không commit)
 ```
 
@@ -282,6 +284,133 @@ Metadata nằm ở PostgreSQL riêng trong compose.
 | `postgres` | Metadata database | |
 | `redis` | Celery broker | |
 | `flower` | Theo dõi Celery, bật bằng `--profile flower` | 5556 (host) |
+
+## DAG hiện có
+
+| DAG | Nguồn | Lịch | Output |
+|---|---|---|---|
+| `weather_open_meteo` | Open-Meteo API | 6 tiếng/lần | bảng `weather_current`, `weather_forecast`, DB `MLAI-AILUSION` |
+| `lehoi_vietnam` | lehoivietnam.com.vn (cào HTML) | 03:00 hằng ngày (giờ VN) | bảng `event`, DB `MLAI-AILUSION` |
+| `gmaps_places` | Google Maps qua `gosom/google-maps-scraper` | 02:00 hằng ngày (giờ VN) | bảng `gmaps_place`, `gmaps_query_run`, DB `MLAI-AILUSION` |
+
+### `lehoi_vietnam`
+
+Site không có API. Danh sách sự kiện lấy từ tab "Mới nhất" ở `/vi/kham-pha`
+(sắp theo thời gian cập nhật) và sitemap; mỗi trang sự kiện có JSON-LD
+`schema.org/Event` cho tên, ngày, địa điểm, ban tổ chức — phần mô tả đầy đủ,
+điểm nhấn, chủ đề và mã địa điểm (`loc2_id` tỉnh, `loc3_id` xã/phường) bóc
+thêm từ HTML. Code cào ở `plugins/lehoi/lehoivietnam.py`, ghi DB ở
+`plugins/lehoi/db.py`.
+
+Kết quả upsert theo `event_id` vào bảng `event` của database `MLAI-AILUSION`
+trên Postgres `ailusion.io.vn:5432`, đăng nhập bằng user `ailusion` (chủ sở
+hữu DB). Task `create_table` tự tạo bảng nếu chưa có. Connection
+`mlai_ailusion` khai báo qua biến `AIRFLOW_CONN_MLAI_AILUSION` trong `.env`
+(xem `.env.example`); mật khẩu có ký tự `@` nên trong URI phải viết `%40`.
+
+Server đang lệch collation (data tạo với glibc 2.41, OS chỉ có 2.36) nên
+`CREATE DATABASE` từ `template1` bị từ chối — DB `MLAI-AILUSION` được tạo bằng
+`TEMPLATE template0`. Tạo DB mới trên server này cũng phải làm vậy.
+
+Tên database có chữ hoa và dấu `-`, trong SQL phải đặt trong ngoặc kép:
+
+```bash
+PGPASSWORD='<mat-khau>' psql -h ailusion.io.vn -U ailusion -d MLAI-AILUSION \
+  -c 'select event_id, name, start_date, address_region from event order by start_date desc limit 10'
+```
+
+- **Delta** (ngày thường): đọc 30 trang đầu tab "Mới nhất" (~360 sự kiện).
+- **Full** (Chủ nhật, khi bảng `event` còn trống, hoặc trigger với `full_refresh=true`):
+  sitemap + toàn bộ tab "Mới nhất", ~3.500 trang, khoảng 15-20 phút.
+
+Không dựa vào `lastmod` của sitemap để lọc delta: lúc viết DAG (06/10/2026)
+sitemap dừng cập nhật từ 15/09 và thiếu các sự kiện id > 6802.
+
+Cào chậm có chủ đích: mỗi batch 100 trang chạy tuần tự, nghỉ 1 giây giữa các
+trang, tối đa 4 batch song song.
+
+### `gmaps_places`
+
+Cào thông tin điểm tham quan / quán ăn trên Google Maps: giờ mở cửa 7 ngày,
+rating, tổng số review và phân bố sao, thuộc tính tiếp cận (lối vào, nhà vệ
+sinh, chỗ đỗ xe cho xe lăn), mô tả ngắn, 5-8 review mẫu. **Không có** giờ đông
+khách, mức giá, thuộc tính trẻ em / món chay (Google không trả cho trình duyệt
+không đăng nhập).
+
+Hai loại truy vấn:
+
+- **Landmark** — tên địa điểm cụ thể, ở `plugins/gmaps/seeds/<điểm đến>.txt`
+  (mỗi dòng `tên, khu vực`, lấy từ prototype; hiện 88 truy vấn cho Đà Lạt,
+  Đà Nẵng, Hà Nội). Thêm điểm đến = thêm file.
+- **Loại hình** — `các <loại hình> tốt nhất ở <khu vực>`, ghép 67 khu vực của
+  34 tỉnh/thành (`seeds/category/areas.txt`) với 16 loại hình
+  (`seeds/category/categories.txt`): ~1.070 truy vấn, mỗi truy vấn cuộn
+  `depth=10` ra 60-70 địa điểm, mất ~95 giây. Phải có "các ... tốt nhất":
+  "khách sạn ở Hội An" bị Google mở thẳng một khách sạn tên "Khách sạn Hội An".
+
+Mỗi lần chạy lấy tối đa `max_category_queries` (mặc định 150, ~4 tiếng) truy
+vấn loại hình chưa cào hoặc cũ nhất: lượt đầu xong sau ~1 tuần, sau đó mỗi
+truy vấn được làm mới sau `category_max_age_days` (30) ngày. Bảng
+`gmaps_query_run` ghi lần chạy cuối và số kết quả của từng truy vấn — truy vấn
+ra rỗng (VD bãi biển ở tỉnh không giáp biển) cũng được ghi để không cào lại
+mỗi ngày. Chỉ cào một vài tỉnh: trigger với `provinces=["lam-dong"]`.
+
+Scraper chạy thành service riêng ở chế độ REST API, khai báo trong
+`docker-compose.gmaps.yaml` để không đụng `docker-compose.yaml`:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.gmaps.yaml up -d gmaps-scraper
+# hoặc đặt trong .env cho lệnh docker compose tự gộp:
+# COMPOSE_FILE=docker-compose.yaml:docker-compose.gmaps.yaml
+curl -s localhost:8090/api/v1/jobs   # web UI / API của scraper
+```
+
+DAG gọi `http://gmaps-scraper:8080` (cùng network compose). Chạy scraper ngoài
+compose thì đặt Variable `gmaps_scraper_url` (VD `http://host.docker.internal:8090`)
+hoặc param `scraper_url` khi trigger.
+
+- Cào từng lô nhỏ (`batch_size`, mặc định 4), lần lượt, nghỉ `pause_seconds`
+  giữa các lô: cào dồn dập thì Google tạm trả rỗng.
+- Truy vấn rỗng không ghi DB, lần chạy sau tự cào lại; cả lô rỗng thì task lỗi
+  để Airflow thử lại sau 15 phút.
+- Bỏ qua truy vấn đã có kết quả trong `max_age_days` ngày (mặc định 7), trừ khi
+  trigger với `force=true`.
+- Mỗi truy vấn landmark trả nhiều điểm cùng tên (VD "Hồ Tuyền Lâm" ra cả
+  resort, bến thuyền quanh hồ); điểm khớp tên nhất được đánh `best_match = true`.
+  Kết quả truy vấn loại hình luôn `best_match = false`.
+
+Upsert theo `cid` vào bảng `gmaps_place`:
+
+```bash
+PGPASSWORD='<mat-khau>' psql -h ailusion.io.vn -U ailusion -d MLAI-AILUSION \
+  -c "select destination, title, rating, review_count, jsonb_typeof(open_hours) from gmaps_place where best_match order by destination, title"
+```
+
+Trigger tay cho một điểm đến:
+
+```bash
+docker compose exec airflow-worker airflow dags test gmaps_places \
+  --conf '{"destinations": ["dalat"], "batch_size": 4, "pause_seconds": 10}'
+```
+
+Test (không cần Airflow, Postgres hay scraper):
+
+```bash
+PYTHONPATH=plugins .venv/bin/python -m pytest tests/test_gmaps.py -q
+```
+
+Dự án đi thi, không thương mại. Cào Google Maps trái điều khoản của Google.
+
+### Worker bị OOM-kill
+
+Docker Desktop mặc định chỉ có ~8 GB RAM, chia với cụm `finance-intelligence-hub`.
+Celery worker mặc định mở 16 tiến trình con (~2 GB) nên task bị `SIGKILL`
+giữa chừng. Compose đặt `AIRFLOW__CELERY__WORKER_CONCURRENCY=4` để tránh;
+gặp lại thì kiểm tra:
+
+```bash
+docker inspect ailusion-journey-data-collector-airflow-worker-1 --format '{{.State.OOMKilled}}'
+```
 
 ## Thêm DAG
 

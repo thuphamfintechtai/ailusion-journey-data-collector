@@ -10,6 +10,7 @@
 #   FLOWER_PORT                  - Port Flower trên máy host. Mặc định 5555
 #   _AIRFLOW_WWW_USER_USERNAME   - Tài khoản admin web UI. Mặc định airflow
 #   _AIRFLOW_WWW_USER_PASSWORD   - Mật khẩu admin web UI. Mặc định airflow
+#   AIRFLOW_CONN_MLAI_AILUSION   - Connection tới kho dữ liệu (bắt buộc)
 ---
 x-airflow-common:
   &airflow-common
@@ -21,6 +22,10 @@ x-airflow-common:
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    # Mac dinh 16 tien trinh con, ton ~2 GB RAM luc ranh. Docker Desktop chay
+    # chung voi finance-intelligence-hub nen bi OOM-kill giua task; 4 la du
+    # cho so task song song hien tai.
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: ${AIRFLOW__CELERY__WORKER_CONCURRENCY:-4}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     # Bật true trong .env để nạp DAG mẫu, dùng khi repo chưa có DAG nào.
     AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-false}
@@ -30,6 +35,9 @@ x-airflow-common:
     AIRFLOW__CORE__HOSTNAME_CALLABLE: 'airflow.utils.net.getfqdn'
     PYTHONPATH: '/opt/airflow'
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    # Kho du lieu: database MLAI-AILUSION tren Postgres ailusion.io.vn.
+    # URI co mat khau nen chi khai bao trong .env.
+    AIRFLOW_CONN_MLAI_AILUSION: ${AIRFLOW_CONN_MLAI_AILUSION:?Thieu AIRFLOW_CONN_MLAI_AILUSION trong .env}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
