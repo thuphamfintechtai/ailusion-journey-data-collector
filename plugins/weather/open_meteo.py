@@ -5,10 +5,8 @@ Open-Meteo mien phi, khong can API key, du lieu tu cac co quan khi tuong chinh t
 https://open-meteo.com/en/docs
 """
 
-import json
 import logging
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -74,7 +72,15 @@ def fetch_weather(destination: dict) -> dict:
 
     # Xu ly du lieu hien tai
     current = data.get("current", {})
+    # current.time la gio dia phuong khong kem mui gio; ghep voi
+    # utc_offset_seconds de thanh moc thoi gian tuyet doi, dung lam khoa
+    # cho bang weather_current.
+    observed_at = None
+    if current.get("time"):
+        tz = timezone(timedelta(seconds=data.get("utc_offset_seconds", 0)))
+        observed_at = datetime.fromisoformat(current["time"]).replace(tzinfo=tz).isoformat()
     current_weather = {
+        "observed_at": observed_at,
         "temperature": current.get("temperature_2m"),
         "humidity": current.get("relative_humidity_2m"),
         "weather_code": current.get("weather_code"),
@@ -101,7 +107,8 @@ def fetch_weather(destination: dict) -> dict:
         "country": destination["country"],
         "lat": destination["lat"],
         "lon": destination["lon"],
-        "fetched_at": datetime.utcnow().isoformat(),
+        # Co mui gio de Postgres (timestamptz) khong doan theo TimeZone cua phien
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
         "timezone": data.get("timezone"),
         "current": current_weather,
         "forecast": forecast,
@@ -127,37 +134,3 @@ def fetch_all_weather(destinations: list[dict]) -> list[dict]:
             results.append(None)
     return results
 
-
-def save_weather_to_file(weather_data: list[dict], data_dir: str = "/opt/airflow/data/weather") -> str:
-    """
-    Luu ket qua vao file JSON.
-
-    Args:
-        weather_data: list ket qua tu fetch_weather
-        data_dir: thu muc luu file
-
-    Returns:
-        duong dan file da luu
-    """
-    data_path = Path(data_dir)
-    data_path.mkdir(parents=True, exist_ok=True)
-
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    timestamp = datetime.utcnow().strftime("%H%M")
-    filename = data_path / f"weather_{today}_{timestamp}.json"
-
-    valid_data = [d for d in weather_data if d is not None]
-
-    output = {
-        "collected_at": datetime.utcnow().isoformat(),
-        "total_destinations": len(valid_data),
-        "failed": len(weather_data) - len(valid_data),
-        "data": valid_data,
-    }
-
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
-
-    logger.info(f"Da luu {len(valid_data)} diem den vao {filename}")
-
-    return str(filename)

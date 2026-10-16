@@ -2,11 +2,16 @@
 DAG thu thap thoi tiet tu Open-Meteo.
 
 Chay 4 lan/ngay (moi 6 tieng) de cap nhat du bao cho cac diem den du lich.
+Ket qua ghi vao bang weather_current va weather_forecast cua database
+MLAI-AILUSION.
 """
 
 from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
+
+# Dung chung connection voi lehoi_vietnam va gmaps_places, khai bao trong .env
+DB_CONN_ID = "mlai_ailusion"
 
 # Danh sach diem den du lich
 DESTINATIONS = [
@@ -50,11 +55,23 @@ def weather_open_meteo():
         return _fetch(destination)
 
     @task
-    def save_weather(weather_data: list[dict]) -> str:
-        from weather.open_meteo import save_weather_to_file
-        return save_weather_to_file(weather_data)
+    def create_table() -> None:
+        from airflow.providers.postgres.hooks.postgres import PostgresHook
+        from weather.db import ensure_table
+
+        with PostgresHook(postgres_conn_id=DB_CONN_ID).get_conn() as conn:
+            ensure_table(conn)
+
+    @task
+    def save_weather(weather_data: list[dict]) -> tuple[int, int]:
+        from airflow.providers.postgres.hooks.postgres import PostgresHook
+        from weather.db import upsert_weather
+
+        with PostgresHook(postgres_conn_id=DB_CONN_ID).get_conn() as conn:
+            return upsert_weather(conn, list(weather_data))
 
     weather_results = fetch_weather.expand(destination=DESTINATIONS)
+    create_table() >> weather_results
     save_weather(weather_results)
 
 
