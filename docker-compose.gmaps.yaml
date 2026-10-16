@@ -1,0 +1,23 @@
+# Service gmaps-scraper cho DAG gmaps_places: gosom/google-maps-scraper o che do web.
+#
+# Gop vao cum Airflow (cung network nen DAG goi duoc http://gmaps-scraper:8080):
+#   docker compose -f docker-compose.yaml -f docker-compose.gmaps.yaml up -d
+# Hoac dat trong .env de lenh docker compose tu gop:
+#   COMPOSE_FILE=docker-compose.yaml:docker-compose.gmaps.yaml
+#
+# Bien moi truong (.env):
+#   GMAPS_SCRAPER_PORT - Port web UI / REST API cua scraper tren host. Mac dinh 8090
+#                        (8080 la finance-intelligence-hub, 8081 la Airflow)
+#
+# Du an di thi, khong thuong mai. Cao Google Maps trai dieu khoan Google.
+services:
+  gmaps-scraper:
+    image: gosom/google-maps-scraper:latest
+    command: ["-web", "-data-folder", "/gmapsdata"]
+    ports:
+      - "${GMAPS_SCRAPER_PORT:-8090}:8080"
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/data/gmaps-scraper:/gmapsdata
+    restart: unless-stopped
+    # Khong dat healthcheck: image khong co wget / curl (kiem tra 2026-10). Kiem tra tay:
+    #   curl -s localhost:${GMAPS_SCRAPER_PORT:-8090}/api/v1/jobs

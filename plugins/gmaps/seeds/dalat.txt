@@ -1,0 +1,33 @@
+# Diem tham quan va quan an Da Lat trong prototype. Moi dong: ten, khu vuc.
+# Bo cac ten chung chung khong phai mot noi cu the (VD "Quan chay khu Phan Dinh Phung").
+Hồ Xuân Hương, Đà Lạt
+Quảng trường Lâm Viên, Đà Lạt
+Chợ đêm Đà Lạt
+Thiền viện Trúc Lâm, Đà Lạt
+Cáp treo Robin Hill, Đà Lạt
+Hồ Tuyền Lâm, Đà Lạt
+Thác Datanla, Đà Lạt
+Đồi chè Cầu Đất, Đà Lạt
+Vườn hoa thành phố Đà Lạt
+Ga Đà Lạt
+Dinh Bảo Đại, Đà Lạt
+Nhà thờ Con Gà, Đà Lạt
+Nhà thờ Domaine de Marie, Đà Lạt
+Biệt thự Hằng Nga Crazy House, Đà Lạt
+Thung lũng Tình Yêu, Đà Lạt
+Núi Langbiang, Lâm Đồng
+Chùa Linh Phước, Đà Lạt
+XQ Sử Quán, Đà Lạt
+Bảo tàng Lâm Đồng, Đà Lạt
+Đường hầm Điêu khắc, Đà Lạt
+Cà phê Túi Mơ To, Đà Lạt
+Mê Linh Coffee Garden, Lâm Đồng
+Làng Cù Lần, Lâm Đồng
+Vườn dâu tây Thái Phiên, Đà Lạt
+Bánh căn Nhà Chung, Đà Lạt
+Bánh mì xíu mại Hoàng Diệu, Đà Lạt
+Lẩu gà lá é Tao Ngộ, Đà Lạt
+Nem nướng Bà Hùng, Đà Lạt
+Le Rabelais Dalat Palace, Đà Lạt
+Lẩu nấm Ashima, Đà Lạt
+Bánh ướt lòng gà Trang, Đà Lạt

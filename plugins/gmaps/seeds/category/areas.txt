@@ -1,0 +1,80 @@
+# Khu vuc cao theo loai hinh: "<khoa tinh> | <ten khu vuc dung trong truy van>".
+# 34 tinh/thanh sau sap nhap (hieu luc 01/07/2025). Moi tinh lay trung tam va cac
+# diem du lich chinh — Google Maps chi tra ket qua quanh khung ban do cua ten khu
+# vuc, nen goi ten tinh moi (vd "Lam Dong") se bo sot Da Lat, Phan Thiet.
+# Them / bot khu vuc: sua file nay, khong can sua code.
+
+# 6 thanh pho truc thuoc trung uong
+ha-noi | Hà Nội
+hue | Huế
+hai-phong | Hải Phòng
+hai-phong | Cát Bà
+da-nang | Đà Nẵng
+da-nang | Hội An
+ho-chi-minh | Thành phố Hồ Chí Minh
+ho-chi-minh | Vũng Tàu
+can-tho | Cần Thơ
+can-tho | Sóc Trăng
+
+# Mien Bac
+tuyen-quang | Tuyên Quang
+tuyen-quang | Hà Giang
+tuyen-quang | Đồng Văn
+cao-bang | Cao Bằng
+lai-chau | Lai Châu
+lao-cai | Sa Pa
+lao-cai | Lào Cai
+lao-cai | Yên Bái
+thai-nguyen | Thái Nguyên
+thai-nguyen | Bắc Kạn
+dien-bien | Điện Biên Phủ
+lang-son | Lạng Sơn
+son-la | Sơn La
+son-la | Mộc Châu
+phu-tho | Việt Trì
+phu-tho | Hòa Bình
+phu-tho | Tam Đảo
+bac-ninh | Bắc Ninh
+bac-ninh | Bắc Giang
+quang-ninh | Hạ Long
+hung-yen | Hưng Yên
+hung-yen | Thái Bình
+ninh-binh | Ninh Bình
+ninh-binh | Nam Định
+ninh-binh | Phủ Lý
+
+# Mien Trung va Tay Nguyen
+thanh-hoa | Thanh Hóa
+thanh-hoa | Sầm Sơn
+nghe-an | Vinh
+nghe-an | Cửa Lò
+ha-tinh | Hà Tĩnh
+quang-tri | Đồng Hới
+quang-tri | Đông Hà
+quang-ngai | Quảng Ngãi
+quang-ngai | Kon Tum
+gia-lai | Pleiku
+gia-lai | Quy Nhơn
+khanh-hoa | Nha Trang
+khanh-hoa | Phan Rang
+lam-dong | Đà Lạt
+lam-dong | Phan Thiết
+lam-dong | Gia Nghĩa
+dak-lak | Buôn Ma Thuột
+dak-lak | Tuy Hòa
+
+# Mien Nam
+dong-nai | Biên Hòa
+dong-nai | Đồng Xoài
+tay-ninh | Tây Ninh
+tay-ninh | Tân An
+vinh-long | Vĩnh Long
+vinh-long | Bến Tre
+vinh-long | Trà Vinh
+dong-thap | Cao Lãnh
+dong-thap | Mỹ Tho
+ca-mau | Cà Mau
+ca-mau | Bạc Liêu
+an-giang | Phú Quốc
+an-giang | Châu Đốc
+an-giang | Rạch Giá

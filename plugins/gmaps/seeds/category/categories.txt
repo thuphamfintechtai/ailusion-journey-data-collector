@@ -1,0 +1,30 @@
+# Loai hinh dia diem, ghep voi moi khu vuc trong areas.txt thanh truy van
+# "cac <loai hinh> tot nhat o <khu vuc>".
+#
+# Phai co "cac ... tot nhat": do thu 07/10/2026, "khach san o Hoi An" bi Google
+# mo thang trang mot khach san ten "Khach san Hoi An" (1 ket qua), con
+# "cac khach san tot nhat o Hoi An" ra danh sach 61 ket qua.
+
+# Tham quan
+điểm tham quan
+bảo tàng
+chùa
+công viên
+bãi biển
+khu vui chơi giải trí
+
+# An uong
+nhà hàng
+quán ăn đặc sản
+quán cà phê
+
+# Luu tru
+khách sạn
+homestay
+resort
+
+# Mua sam va giai tri
+chợ
+trung tâm thương mại
+quán bar
+spa
